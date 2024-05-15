@@ -24,6 +24,12 @@ $app = AppFactory::create();
 
 $dice = new Dice();
 
+$app->get('/health', function (Request $request, Response $response) use ($logger) {
+  $logger->info("healthcheck endpoint hit");
+  $response->withStatus(200);
+  return $response;
+});
+
 $app->get('/rolldice', function (Request $request, Response $response) use ($logger, $dice, $tracer) {
   $request = ServerRequestFactory::createFromGlobals();
   $context = TraceContextPropagator::getInstance()->extract($request->getHeaders());
@@ -45,11 +51,11 @@ $app->get('/rolldice', function (Request $request, Response $response) use ($log
       $response->getBody()->write(json_encode($result));
     } else {
       $e = new Exception("rolls param not provided");
-      $response->withStatus(400); // ->getBody()->write("Please enter a number of rolls");
+      $response = $response->withStatus(400); // ->getBody()->write("Please enter a number of rolls");
     }
   } catch (Exception $e) {
     $root->recordException($e);
-    $response->withStatus(500); // ->getBody()->write("Please enter a number of rolls");
+    $response = $response->withStatus(500); // ->getBody()->write("Please enter a number of rolls");
   } finally {
     $root->end();
     $scope->detach();

@@ -18,11 +18,9 @@ RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 RUN echo -e "extension=grpc.so\n\n[opentelemetry]\nextension=opentelemetry.so\n\n" >> "$PHP_INI_DIR/php.ini"
 
-VOLUME /app
-
-WORKDIR /app
+COPY . .
 
 EXPOSE 8000
 
-CMD ["php -S 0.0.0.0:8000"]
+ENTRYPOINT php -S 0.0.0.0:8000
 

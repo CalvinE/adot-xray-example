@@ -6,7 +6,7 @@ output "vpc_id" {
   value = module.vpc.vpc_id
 }
 
-output "alb_dns_name" {
-  value = aws_alb.mathservice.dns_name
+output "mathservice_alb_dns_name" {
+  value = module.mathservice_app.alb_dns_name
 }
 

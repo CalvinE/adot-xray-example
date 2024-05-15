@@ -18,7 +18,11 @@ RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 RUN echo -e "extension=grpc.so\n\n[opentelemetry]\nextension=opentelemetry.so\n\n" >> "$PHP_INI_DIR/php.ini"
 
-COPY . .
+COPY ./*.php .
+
+COPY ./composer.* .
+
+RUN composer install
 
 EXPOSE 8000
 

@@ -1,1 +1,0 @@
-# OpenTelemetry protobuf files

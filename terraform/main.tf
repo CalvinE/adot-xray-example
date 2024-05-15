@@ -79,12 +79,12 @@ resource "aws_security_group" "ecs_task" {
   name   = "allow lb to ecs"
   vpc_id = module.vpc.vpc_id
   ingress {
-    protocol  = "tcp"
-    from_port = local.mathservice_container_port
-    to_port   = local.mathservice_container_port
-    # security_groups = [aws_security_group.lb.id]
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
+    protocol        = "tcp"
+    from_port       = local.mathservice_container_port
+    to_port         = local.mathservice_container_port
+    security_groups = [aws_security_group.lb.id]
+    # cidr_blocks      = ["0.0.0.0/0"]
+    # ipv6_cidr_blocks = ["::/0"]
   }
 
   egress {

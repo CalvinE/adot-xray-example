@@ -41,6 +41,16 @@ resource "aws_iam_role" "ecs_task_role" {
   assume_role_policy = data.aws_iam_policy_document.ecs_assume_role.json
 }
 
+resource "aws_iam_role_policy_attachment" "ecs-task-role-policy-attachment-cloudwatch" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchFullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "ecs-task-role-policy-attachment-xray" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess"
+}
+
 resource "aws_ecs_task_definition" "mathservice" {
   family                   = "mathservice-app-task"
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn

@@ -1,0 +1,19 @@
+{
+    "require": {
+        "slim/slim": "^4",
+        "slim/psr7": "^1",
+        "monolog/monolog": "^3",
+        "symfony/http-client": "^7.0",
+        "open-telemetry/contrib-aws": "^0.0.17",
+        "php-http/httplug": "^2.4",
+        "open-telemetry/api": "^0.0.17",
+        "open-telemetry/sdk": "^0.0.17",
+        "open-telemetry/exporter-otlp": "^0.0.17",
+        "open-telemetry/transport-grpc": "^0.0.17"
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    }
+}

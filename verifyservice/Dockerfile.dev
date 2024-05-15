@@ -1,0 +1,32 @@
+FROM php:8.3-fpm
+
+RUN apt update \
+    && apt install -y zlib1g-dev g++ git libicu-dev zip libzip-dev zip gcc make autoconf \
+    && docker-php-ext-install intl opcache pdo pdo_mysql \
+    && pecl install apcu \
+    && docker-php-ext-enable apcu \
+    && docker-php-ext-configure zip \
+    && docker-php-ext-install zip \
+    && pecl install opentelemetry
+
+RUN pecl install grpc \
+    && docker-php-ext-enable grpc
+
+COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
+
+COPY --from=ghcr.io/symfony-cli/symfony-cli:5.8.19 /usr/local/bin/symfony /usr/local/bin/symfony
+
+RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+
+RUN echo -e "extension=grpc.so\n\n[opentelemetry]\nextension=opentelemetry.so\n\n" >> "$PHP_INI_DIR/php.ini"
+
+VOLUME /app
+
+WORKDIR /app
+
+# create symfony app with composer
+#RUN php /var/www/html/composer.phar create-project symfony/skeleton:"6.4.*" .
+EXPOSE 8000
+
+
+

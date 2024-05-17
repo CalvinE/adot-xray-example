@@ -1,6 +1,7 @@
+// TODO: remove ALB from this module. What if I want more than one app per ALB? ALB should be a separate module with app info for the creation of target groups.
 resource "aws_alb" "this" {
   name            = "${var.app_name}-lb"
-  subnets         = var.public_subnet_ids // values(module.azs)[*].public_subnet_id
+  subnets         = var.public_subnet_ids
   security_groups = [aws_security_group.lb.id]
 }
 

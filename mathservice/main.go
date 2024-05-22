@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -18,6 +21,8 @@ import (
 	apptrace "go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 )
+
+const loggerKey = "loggerKey"
 
 var tracer apptrace.Tracer
 
@@ -93,11 +98,18 @@ func validateOp(ctx context.Context, op string) (int, error) {
 func addHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, span := tracer.Start(r.Context(), "addHandler")
 	defer span.End()
+	logger, err := getTraceAwareLogger(ctx)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	logger.Info("add handler hit")
 	query := r.URL.Query()
 	op1String := query.Get("op1")
 	op1, err := validateOp(ctx, op1String)
 	if err != nil {
 		setSpanError(span, "op1 validation failed", err, attribute.String("op1", op1String))
+		logger.Error("op1 validation failed", slog.String("err", err.Error()), slog.String("op1String", op1String))
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("bad request"))
 		return
@@ -109,13 +121,14 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 	op2, err := validateOp(ctx, op2String)
 	if err != nil {
 		setSpanError(span, "op2 validation failed", err, attribute.String("op2", op2String))
+		logger.Error("op2 validation failed", slog.String("err", err.Error()), slog.String("op2String", op1String))
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("bad request"))
 		return
 	}
 
 	result := op1 + op2
-
+	logger.Debug("operation complete")
 	w.Write([]byte(strconv.Itoa(result)))
 }
 
@@ -125,19 +138,48 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func getTraceAwareLogger(spanContextWithLogger context.Context) (*slog.Logger, error) {
+	logger, ok := spanContextWithLogger.Value(loggerKey).(*slog.Logger)
+	if !ok {
+		return nil, errors.New("request context did not contain a logger")
+	}
+	spanCtx := apptrace.SpanContextFromContext(spanContextWithLogger)
+	if spanCtx.IsValid() {
+		logger = logger.With(
+			slog.String("traceID", spanCtx.TraceID().String()),
+			slog.String("spanID", spanCtx.SpanID().String()),
+		)
+	}
+	return logger, nil
+}
+
+func addLoggerMiddleware(next http.Handler, logger *slog.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), loggerKey, logger)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 func main() {
 	ctx := context.Background()
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		AddSource: true,
+		Level:     slog.LevelDebug,
+	}))
+	logger.Debug("mathservice starting")
 	if err := initTracing(ctx); err != nil {
-		fmt.Printf("init traces errored: %v", err)
+		logger.Error("init traces errored", slog.String("err", err.Error()))
+		// fmt.Printf("init traces errored: %v", err)
 		return
 	}
 	if err := initMetrics(ctx); err != nil {
-		fmt.Printf("init metrics errored: %v", err)
+		logger.Error("init metrics errored", slog.String("err", err.Error()))
+		// fmt.Printf("init metrics errored: %v", err)
 		return
 	}
 	fmt.Println("starting up mathservice")
 	mux := http.NewServeMux()
-	mux.Handle("GET /add", otelhttp.NewHandler(http.HandlerFunc(addHandler), "add"))
+	mux.Handle("GET /add", otelhttp.NewHandler(addLoggerMiddleware(http.HandlerFunc(addHandler), logger), "add"))
 	mux.HandleFunc("GET /health", healthCheckHandler)
 	if err := http.ListenAndServe(":8080", mux); err != nil {
 		fmt.Printf("HTTP server errored... %v", err)

@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 
+	"go.opentelemetry.io/contrib/detectors/aws/ecs"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/contrib/propagators/aws/xray"
 	"go.opentelemetry.io/otel"
@@ -38,10 +39,17 @@ func initTracing(ctx context.Context) error {
 	}
 	idg := xray.NewIDGenerator()
 
+	ecsResourceDetector := ecs.NewResourceDetector()
+	resource, err := ecsResourceDetector.Detect(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to build the ecs resource detector: %v", err)
+	}
+
 	tp := trace.NewTracerProvider(
 		trace.WithSampler(trace.AlwaysSample()),
 		trace.WithBatcher(traceExporter),
 		trace.WithIDGenerator(idg),
+		trace.WithResource(resource),
 	)
 
 	otel.SetTracerProvider(tp)

@@ -1,3 +1,50 @@
+# AWS ADOT ECS Example
+
+This is a example project for setting up a ECS Cluster with services running with `AWS ADOT` sidecars. 
+The apps are configured with opentelemetry and the ADOT sidecar is configured to send traces to `AWS X-Ray` 
+and metrics to `AWS CloudWatch Metrics`. All infrastructure is built with terraform, so setting up the demo should be very easy!
+
+## Setup Instructions
+
+All of these commands are run from the terraform folder
+
+### Run Terraform Apply
+
+```bash
+cd ./terraform
+terraform apply
+```
+
+### Login In To ECR Registry
+
+This uses the `mathservice` url but cut is chopping off the `mathservice`
+part so its just the private ECR address.
+
+```bash
+aws ecr get-login-password --region us-east-2 | docker login -u AWS --password-stdin "$(terraform output -raw mathservice_ecr_url | cut -f1 -d'/')"
+```
+
+### Build app docker images
+
+```bash
+docker build -f ../mathservice/Dockerfile -t mathservice ../mathservice
+docker build -f ../verifyservice/Dockerfile -t verifyservice ../verifyservice
+```
+
+### Tag docker images
+
+```bash
+docker tag mathservice:latest "$(terraform output -raw mathservice_ecr_url)"
+docker tag verifyservice:latest "$(terraform output -raw verifyservice_ecr_url)"
+```
+
+### Push Docker images to ECR
+
+```bash
+docker push "$(terraform output -raw mathservice_ecr_url)"
+docker push "$(terraform output -raw verifyservice_ecr_url)"
+```
+
 ## Docker Login
 
 ```bash

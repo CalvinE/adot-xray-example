@@ -1,10 +1,3 @@
-// TODO: remove ALB from this module. What if I want more than one app per ALB? ALB should be a separate module with app info for the creation of target groups.
-resource "aws_alb" "this" {
-  name            = "${var.app_name}-lb"
-  subnets         = var.public_subnet_ids
-  security_groups = [aws_security_group.lb.id]
-}
-
 resource "aws_alb_target_group" "this" {
   name = "${var.app_name}-tg"
   port = var.container_port
@@ -27,15 +20,16 @@ resource "aws_alb_target_group" "this" {
   }
 }
 
-resource "aws_lb_listener" "this" {
-  load_balancer_arn = aws_alb.this.arn
-  port              = var.external_port
-  // TODO: make configurable
-  protocol = "HTTP"
-
-  default_action {
-    target_group_arn = aws_alb_target_group.this.id
+resource "aws_lb_listener_rule" "this" {
+  listener_arn = var.listener_arn
+  condition {
+    host_header {
+      values = var.listener_rule_host_values
+    }
+  }
+  action {
     type             = "forward"
+    target_group_arn = aws_alb_target_group.this.arn
   }
 }
 

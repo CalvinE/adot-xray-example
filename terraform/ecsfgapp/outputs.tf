@@ -1,10 +1,6 @@
-output "alb_dns_name" {
+output "dns_names" {
   description = "The dns name for the ALB"
-  value       = aws_alb.this.dns_name
+  value       = var.listener_rule_host_values
 }
 
-output "alb_arn" {
-  description = "The ARN of the ALB"
-  value       = aws_alb.this.arn
-}
 // TODO: populate this...

@@ -11,10 +11,10 @@ output "vpc_id" {
 }
 
 output "mathservice_alb_dns_name" {
-  value = module.mathservice_app.alb_dns_name
+  value = local.mathservice_domain
 }
 
 output "verifyservice_alb_dns_name" {
-  value = module.verifyservice_app.alb_dns_name
+  value = local.verifyservice_domain
 }
 

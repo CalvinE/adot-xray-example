@@ -78,5 +78,5 @@ resource "aws_ecs_service" "this" {
     container_port   = var.container_port
   }
 
-  depends_on = [aws_lb_listener.this]
+  depends_on = [aws_lb_listener_rule.this]
 }

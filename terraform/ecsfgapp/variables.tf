@@ -18,6 +18,21 @@ variable "external_port" {
   type        = number
 }
 
+variable "listener_rule_host_values" {
+  description = "A set of host names that will direct to this ecs service from the ALB"
+  type        = set(string)
+}
+
+variable "listener_arn" {
+  description = "The arn of the listener on the ALB"
+  type        = string
+}
+
+variable "loadbalancer_securitygroup_id" {
+  description = "The security group id of the alb for the app"
+  type        = string
+}
+
 variable "app_name" {
   description = "The name of the app being deployed"
   type        = string

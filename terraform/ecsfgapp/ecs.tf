@@ -49,13 +49,14 @@ resource "aws_ecs_task_definition" "this" {
   cpu                      = var.ecs_fargate_cpu
   memory                   = var.ecs_fargate_memory
   container_definitions = templatefile("./ecsfgapp/templates/ecs_adot_container_definition.json.tpl", {
-    "log_group_name"      = aws_cloudwatch_log_group.app_task.name
-    "adot_log_group_name" = aws_cloudwatch_log_group.app_aws_otel_task.name
-    "app_adot_name"       = "${var.app_name}-aws-otel-collector"
-    "app_name"            = var.app_name
-    "app_image"           = "${var.ecr_repo_url}:latest"
-    "aws_region"          = var.aws_region
-    "app_port"            = var.container_port
+    "log_group_name"        = aws_cloudwatch_log_group.app_task.name
+    "adot_log_group_name"   = aws_cloudwatch_log_group.app_aws_otel_task.name
+    "app_adot_name"         = "${var.app_name}-aws-otel-collector"
+    "app_name"              = var.app_name
+    "app_image"             = "${var.ecr_repo_url}:latest"
+    "aws_region"            = var.aws_region
+    "app_port"              = var.container_port
+    "environment_variables" = jsonencode(var.app_env_variables)
   })
 }
 

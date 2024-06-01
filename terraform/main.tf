@@ -218,6 +218,10 @@ module "mathservice_app" {
   listener_arn                  = aws_lb_listener.this.arn
   listener_rule_host_values     = [local.mathservice_domain]
   loadbalancer_securitygroup_id = aws_security_group.lb.id
+  app_env_variables             = [{ name = "VERIFY_SERVICE_URL", value = "https://${local.verifyservice_domain}" }]
+  # {
+  #   "VERIFY_SERVICE_URL" = "https://${local.verifyservice_domain}"
+  # }
 }
 
 module "verifyservice_app" {

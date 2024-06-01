@@ -3,6 +3,7 @@
     "name": "${app_name}",
     "image": "${app_image}",
     "essential": true,
+    "environment": ${environment_variables},
     "logConfiguration": {
         "logDriver": "awslogs",
         "options": {

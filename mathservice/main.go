@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -26,6 +28,13 @@ import (
 const loggerKey = "loggerKey"
 
 var tracer apptrace.Tracer
+
+func envOrDefault(name string, defaultValue string) string {
+	if val, exists := os.LookupEnv(name); exists {
+		return val
+	}
+	return defaultValue
+}
 
 func initTracing(ctx context.Context) error {
 	// Create and start new OTLP trace exporter
@@ -136,8 +145,60 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result := op1 + op2
+
+	if err := validateAdd(ctx, logger, op1, op2, result); err != nil {
+		errMsg := "add result validation failed"
+		setSpanError(span, errMsg, err)
+		logger.Error(errMsg, slog.String("err", err.Error()))
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("verification failed"))
+		return
+	}
 	logger.Debug("operation complete")
 	w.Write([]byte(strconv.Itoa(result)))
+}
+
+func validateAdd(ctx context.Context, logger *slog.Logger, op1, op2, sum int) error {
+	// VERIFY_SERVICE_URL
+	domain := envOrDefault("VERIFY_SERVICE_URL", "http://localhost:8000")
+
+	ctx, span := tracer.Start(ctx, "validateAdd")
+	defer span.End()
+
+	url := fmt.Sprintf("%s/api/verify?op1=%d&op2=%d&es=%d", domain, op1, op2, sum)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		setSpanError(span, "failed to create request to verify service", err)
+		return err
+	}
+	client := http.Client{
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		setSpanError(span, "failed to make request to verify service", err)
+		return err
+	}
+	defer res.Body.Close()
+	data, err := io.ReadAll(res.Body)
+	if err != nil {
+		setSpanError(span, "failed to read body from verify srervice request response", err)
+		return err
+	}
+	type verifyServiceResponse struct {
+		IsTrue bool `json:"isTrue"`
+	}
+	var result verifyServiceResponse
+	if err := json.Unmarshal(data, &result); err != nil {
+		setSpanError(span, "failed to unmarshal json response body from verify service", err)
+		return err
+	}
+	if !result.IsTrue {
+		err := fmt.Errorf("verify service determined that the operation was not correct...")
+		setSpanError(span, "result was not correct", err)
+		return err
+	}
+	return nil
 }
 
 // A simple health check handler

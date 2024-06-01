@@ -77,3 +77,10 @@ variable "aws_region" {
   description = "The aws region the service will be deployed in"
   type        = string
 }
+
+variable "app_env_variables" {
+  description = "The environment varialbes to set for the container"
+  default     = []
+  type        = list(object({ name = string, value = string })) //set(object({ name = string, value = string }))
+}
+

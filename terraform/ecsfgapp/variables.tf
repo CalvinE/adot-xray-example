@@ -8,16 +8,6 @@ variable "private_subnet_ids" {
   type        = set(string)
 }
 
-variable "public_subnet_ids" {
-  description = "The ids of the public subnets where the ALB will run"
-  type        = set(string)
-}
-
-variable "external_port" {
-  description = "The port on the ALB for the app"
-  type        = number
-}
-
 variable "listener_rule_host_values" {
   description = "A set of host names that will direct to this ecs service from the ALB"
   type        = set(string)
@@ -84,3 +74,7 @@ variable "app_env_variables" {
   type        = list(object({ name = string, value = string })) //set(object({ name = string, value = string }))
 }
 
+variable "ssm_adot_custom_config_arn" {
+  description = "This is the arn to the SSM parameter that contains the whole text of your custom adot config"
+  type        = string
+}

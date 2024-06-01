@@ -45,6 +45,15 @@ locals {
 
   ]
 }
+
+# SSM Parameter for custom adot config
+resource "aws_ssm_parameter" "adot-config" {
+  name  = "adot-collector-config"
+  tier  = "Standard"
+  value = file("${path.module}/adot-config/custom.yaml")
+  type  = "String"
+}
+
 # Create Elastic Container Registry
 resource "aws_ecr_repository" "mathservice_ecr" {
   name         = local.mathservice_app_name
@@ -203,10 +212,8 @@ module "azs" {
 module "mathservice_app" {
   source                        = "./ecsfgapp"
   vpc_id                        = module.vpc.vpc_id
-  public_subnet_ids             = values(module.azs)[*].public_subnet_id
   private_subnet_ids            = values(module.azs)[*].private_subnet_id
   app_name                      = local.mathservice_app_name
-  external_port                 = 80
   container_port                = 8080
   healthcheck_path              = "/health"
   ecs_cluster_id                = aws_ecs_cluster.main.id
@@ -219,6 +226,7 @@ module "mathservice_app" {
   listener_rule_host_values     = [local.mathservice_domain]
   loadbalancer_securitygroup_id = aws_security_group.lb.id
   app_env_variables             = [{ name = "VERIFY_SERVICE_URL", value = "https://${local.verifyservice_domain}" }]
+  ssm_adot_custom_config_arn    = aws_ssm_parameter.adot-config.arn
   # {
   #   "VERIFY_SERVICE_URL" = "https://${local.verifyservice_domain}"
   # }
@@ -227,10 +235,8 @@ module "mathservice_app" {
 module "verifyservice_app" {
   source                        = "./ecsfgapp"
   vpc_id                        = module.vpc.vpc_id
-  public_subnet_ids             = values(module.azs)[*].public_subnet_id
   private_subnet_ids            = values(module.azs)[*].private_subnet_id
   app_name                      = local.verifyservice_app_name
-  external_port                 = 80
   container_port                = 8000
   healthcheck_path              = "/health"
   ecs_cluster_id                = aws_ecs_cluster.main.id
@@ -242,5 +248,6 @@ module "verifyservice_app" {
   listener_arn                  = aws_lb_listener.this.arn
   listener_rule_host_values     = [local.verifyservice_domain]
   loadbalancer_securitygroup_id = aws_security_group.lb.id
+  ssm_adot_custom_config_arn    = aws_ssm_parameter.adot-config.arn
 }
 

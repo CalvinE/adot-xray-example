@@ -145,7 +145,7 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result := op1 + op2
-
+	logger.Debug("making call to validate result")
 	if err := validateAdd(ctx, logger, op1, op2, result); err != nil {
 		errMsg := "add result validation failed"
 		setSpanError(span, errMsg, err)

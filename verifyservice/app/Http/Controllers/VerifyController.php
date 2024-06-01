@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Route;
 use OpenTelemetry\API\Instrumentation\CachedInstrumentation;
 use OpenTelemetry\API\Logs\LogRecord;
 use OpenTelemetry\API\Trace\Span;
+use OpenTelemetry\API\Trace\StatusCode;
 use Psr\Log\LogLevel;
 
 class VerifyController extends Controller
@@ -49,6 +50,7 @@ class VerifyController extends Controller
             //     ->setBody("an error happened")
             //     ->setAttribute("traceId", $traceId)
             //     ->setSeverityText(LogLevel::ERROR));
+            $span->setStatus(StatusCode::STATUS_ERROR);
             $span->recordException($exception);
             return response(null, 500);
         } finally {

@@ -58,11 +58,6 @@ variable "ecs_fargate_memory" {
   type        = number
 }
 
-variable "ecr_repo_url" {
-  description = "The url to the ECR repo for the serivce"
-  type        = string
-}
-
 variable "aws_region" {
   description = "The aws region the service will be deployed in"
   type        = string
@@ -78,3 +73,20 @@ variable "ssm_adot_custom_config_arn" {
   description = "This is the arn to the SSM parameter that contains the whole text of your custom adot config"
   type        = string
 }
+
+variable "route53_zone_id" {
+  description = "The zone id of the domain that the sub domain for this app will be added to"
+  type        = string
+}
+
+variable "alb_domain_name" {
+  description = "The domain name of the ALB for this app"
+  type        = string
+}
+
+variable "alb_zone_id" {
+  description = "The zone id of the ALB fdor this app"
+  type        = string
+}
+
+

@@ -61,11 +61,10 @@ resource "aws_iam_role_policy_attachment" "ecs-task-role-policy-attachment-xray"
   policy_arn = "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess"
 }
 
-resource "aws_iam_role_policy_attachment" "task-allow-access-adot-config-ssm" {
-  role       = aws_iam_role.ecs_task_role.name
-  policy_arn = aws_iam_policy.allow-access-adot-config-ssm.arn
-}
-
+# resource "aws_iam_role_policy_attachment" "task-allow-access-adot-config-ssm" {
+#   role       = aws_iam_role.ecs_task_role.name
+#   policy_arn = aws_iam_policy.allow-access-adot-config-ssm.arn
+# }
 
 resource "aws_ecs_task_definition" "this" {
   family                   = "${var.app_name}-app-task"
@@ -80,7 +79,7 @@ resource "aws_ecs_task_definition" "this" {
     "adot_log_group_name"       = aws_cloudwatch_log_group.app_aws_otel_task.name
     "app_adot_name"             = "${var.app_name}-aws-otel-collector"
     "app_name"                  = var.app_name
-    "app_image"                 = "${var.ecr_repo_url}:latest"
+    "app_image"                 = "${aws_ecr_repository.this.repository_url}:latest"
     "aws_region"                = var.aws_region
     "app_port"                  = var.container_port
     "environment_variables"     = jsonencode(var.app_env_variables)

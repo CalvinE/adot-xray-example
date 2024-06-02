@@ -1,9 +1,9 @@
 output "mathservice_ecr_url" {
-  value = aws_ecr_repository.mathservice_ecr.repository_url
+  value = module.mathservice_app.ecr_url
 }
 
 output "verifyservice_ecr_url" {
-  value = aws_ecr_repository.verifyservice_ecr.repository_url
+  value = module.verifyservice_app.ecr_url
 }
 
 output "vpc_id" {

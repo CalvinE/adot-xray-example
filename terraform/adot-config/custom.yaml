@@ -10,7 +10,7 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 processors:
-  filter/ottl:
+  filter/ignore_health:
     error_mode: ignore
     traces:
       span:
@@ -93,7 +93,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [filter/ottl, resourcedetection, batch/traces]
+      processors: [filter/ignore_health, resourcedetection, batch/traces]
       exporters: [awsxray]
     metrics/application:
       receivers: [otlp]

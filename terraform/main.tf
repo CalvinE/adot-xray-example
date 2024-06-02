@@ -9,9 +9,9 @@ terraform {
 }
 
 locals {
-  region        = "us-east-2"
+  region        = var.region
   external_port = 443
-  tld           = "cechols.com"
+  tld           = var.top_hosted_domain #"cechols.com"
 }
 
 # Configure the AWS Provider
@@ -42,7 +42,6 @@ locals {
       private_cidr = "10.0.4.0/24"
       az           = "us-east-2b"
     }
-
   ]
 }
 
@@ -54,17 +53,6 @@ resource "aws_ssm_parameter" "adot-config" {
   type  = "String"
 }
 
-# Create Elastic Container Registry
-resource "aws_ecr_repository" "mathservice_ecr" {
-  name         = local.mathservice_app_name
-  force_delete = true
-}
-
-resource "aws_ecr_repository" "verifyservice_ecr" {
-  name         = local.verifyservice_app_name
-  force_delete = true
-}
-
 resource "aws_alb" "this" {
   name            = "adot-demo-lb"
   subnets         = values(module.azs)[*].public_subnet_id
@@ -74,10 +62,9 @@ resource "aws_alb" "this" {
 resource "aws_lb_listener" "this" {
   load_balancer_arn = aws_alb.this.arn
   port              = local.external_port
-  // TODO: make configurable
-  protocol        = "HTTPS"
-  ssl_policy      = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn = aws_acm_certificate.adot_apps.arn
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = aws_acm_certificate.adot_apps.arn
 
   default_action {
     type = "fixed-response"
@@ -93,7 +80,6 @@ resource "aws_lb_listener" "this" {
 resource "aws_security_group" "lb" {
   name_prefix = "adot example allow app traffic"
   vpc_id      = module.vpc.vpc_id
-  // TODO: make this dynamic incase there are multiple ports
   ingress {
     from_port        = local.external_port
     to_port          = local.external_port
@@ -151,30 +137,6 @@ resource "aws_route53_record" "acm_validation" {
   zone_id         = each.value.zone_id
 }
 
-resource "aws_route53_record" "mathservice" {
-  zone_id = aws_route53_zone.apps.zone_id
-  name    = local.mathservice_domain
-  type    = "A"
-
-  alias {
-    name                   = aws_alb.this.dns_name
-    zone_id                = aws_alb.this.zone_id
-    evaluate_target_health = true
-  }
-}
-
-resource "aws_route53_record" "verifyservice" {
-  zone_id = aws_route53_zone.apps.zone_id
-  name    = local.verifyservice_domain
-  type    = "A"
-
-  alias {
-    name                   = aws_alb.this.dns_name
-    zone_id                = aws_alb.this.zone_id
-    evaluate_target_health = true
-  }
-}
-
 # ACM Resources
 resource "aws_acm_certificate" "adot_apps" {
   domain_name       = local.apps_domain
@@ -221,12 +183,14 @@ module "mathservice_app" {
   ecs_fargate_cpu               = 256
   ecs_fargate_memory            = 512
   aws_region                    = local.region
-  ecr_repo_url                  = aws_ecr_repository.mathservice_ecr.repository_url
   listener_arn                  = aws_lb_listener.this.arn
   listener_rule_host_values     = [local.mathservice_domain]
   loadbalancer_securitygroup_id = aws_security_group.lb.id
   app_env_variables             = [{ name = "VERIFY_SERVICE_URL", value = "https://${local.verifyservice_domain}" }]
   ssm_adot_custom_config_arn    = aws_ssm_parameter.adot-config.arn
+  alb_domain_name               = aws_alb.this.dns_name
+  alb_zone_id                   = aws_alb.this.zone_id
+  route53_zone_id               = aws_route53_zone.apps.id
   # {
   #   "VERIFY_SERVICE_URL" = "https://${local.verifyservice_domain}"
   # }
@@ -244,10 +208,12 @@ module "verifyservice_app" {
   ecs_fargate_cpu               = 256
   ecs_fargate_memory            = 512
   aws_region                    = local.region
-  ecr_repo_url                  = aws_ecr_repository.verifyservice_ecr.repository_url
   listener_arn                  = aws_lb_listener.this.arn
   listener_rule_host_values     = [local.verifyservice_domain]
   loadbalancer_securitygroup_id = aws_security_group.lb.id
   ssm_adot_custom_config_arn    = aws_ssm_parameter.adot-config.arn
+  alb_domain_name               = aws_alb.this.dns_name
+  alb_zone_id                   = aws_alb.this.zone_id
+  route53_zone_id               = aws_route53_zone.apps.id
 }
 

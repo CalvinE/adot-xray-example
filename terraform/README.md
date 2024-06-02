@@ -41,7 +41,7 @@
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_region"></a> [region](#input\_region) | The AWS region to deploy to | `string` | `"us-east-2"` | no |
-| <a name="input_top_hosted_domain"></a> [top\_hosted\_domain](#input\_top\_hosted\_domain) | The top level domain that the app domain will be added to as a sub domain. This example assume that this domain is already in AWS Route 53 and can be used to create a data resource for the domain zone. | `string` | n/a | yes |
+| <a name="input_top_hosted_domain"></a> [top\_hosted\_domain](#input\_top\_hosted\_domain) | The top level domain that the app domain will be added to as a sub domain. This example assume that this domain is already in AWS Route 53 and can be used to create a data resource for the domain zone. For example "example.com" | `string` | n/a | yes |
 
 ## Outputs
 

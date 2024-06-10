@@ -34,6 +34,48 @@ This project consists of the following:
     - This endpoint checks the math of the `Mathservice` to ensure it is correct... It will be, but I needed another simple service to show off distributed tracing...
     - This service has an intentional bug in which if the sum of the operands is 8 it will throw an Exception, for demonstration purposes.
 
+### Demo Screenshots
+
+#### Trace Map
+
+This gives a nice view of all activities in your traced services. You can visualize flows and see error rates on specifc services at a glance!
+
+![Trace Map](./screenshots/Trace_Map.png "Trace Map")
+
+#### Trace List
+
+Here we can see a list of traces listed over a given period of time
+
+![Trace List](./screenshots/Trace_List.png "Trace List")
+
+#### Examining an Error with Tracing and Log Correlation
+
+##### Looking at the trace map
+
+![Error Trace Details](./screenshots/01_Error_Trace_Details.png "Error Trace Details")
+
+##### Looking at the trace segment timeline
+
+![Error Trace Details](./screenshots/02_Error_Segment_Timeline.png "Error Trace Details")
+
+##### Looking at trace segment resource details
+
+![Error Trace Details](./screenshots/03_Error_Segment_Timeline_Detail.png "Error Trace Details")
+
+##### Looking at trace segment metadata
+
+![Error Trace Details](./screenshots/04_Error_Segment_Timeline_Detail_Metadata.png "Error Trace Details")
+
+##### Looking at trace segment exception details
+
+![Error Trace Details](./screenshots/05_Error_Segment_Timeline_Detail_Exception.png "Error Trace Details")
+
+##### Looking at logs across services correlated with the trace ID for this request
+
+A note worth reiterating here is that This pane contains all logs across all services that contain the trace id of the trace being inspected. This makes finding logs related to a specific request all in one place very easy. Its not the only way to accomplish this, but it is effective!
+
+![Error Trace Details](./screenshots/06_Error_Trace_Correlated_Logs.png "Error Trace Details")
+
 ## Setup Instructions
 
 All of these commands are run from the terraform folder

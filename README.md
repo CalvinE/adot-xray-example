@@ -116,3 +116,7 @@ docker tag verifyservice:latest "$(terraform output -raw verifyservice_ecr_url)"
 docker push "$(terraform output -raw mathservice_ecr_url)"
 docker push "$(terraform output -raw verifyservice_ecr_url)"
 ```
+
+Once this is complete just hit the appropriate ALB endpoint (you can find this in the terraform output after deploying). Use the examples above to play around.
+
+> TODO: add a swagger doc for each service.

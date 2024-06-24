@@ -46,11 +46,29 @@ locals {
 }
 
 # SSM Parameter for custom adot config
-resource "aws_ssm_parameter" "adot-config" {
-  name  = "adot-collector-config"
-  tier  = "Standard"
-  value = file("${path.module}/adot-config/custom.yaml")
-  type  = "String"
+# resource "aws_ssm_parameter" "adot-config" {
+#   name  = "adot-collector-config"
+#   tier  = "Standard"
+#   value = file("${path.module}/adot-config/custom.yaml")
+#   type  = "String"
+# }
+
+resource "aws_ssm_parameter" "mathservice-adot-config" {
+  name = "adot-collector-config-${local.mathservice_app_name}"
+  tier = "Standard"
+  value = templatefile("${path.module}/adot-config/custom-parameterized.yaml", {
+    app_name = local.mathservice_app_name
+  })
+  type = "String"
+}
+
+resource "aws_ssm_parameter" "verifyservice-adot-config" {
+  name = "adot-collector-config-${local.verifyservice_app_name}"
+  tier = "Standard"
+  value = templatefile("${path.module}/adot-config/custom-parameterized.yaml", {
+    app_name = local.verifyservice_app_name
+  })
+  type = "String"
 }
 
 resource "aws_alb" "this" {
@@ -187,10 +205,11 @@ module "mathservice_app" {
   listener_rule_host_values     = [local.mathservice_domain]
   loadbalancer_securitygroup_id = aws_security_group.lb.id
   app_env_variables             = [{ name = "VERIFY_SERVICE_URL", value = "https://${local.verifyservice_domain}" }]
-  ssm_adot_custom_config_arn    = aws_ssm_parameter.adot-config.arn
+  ssm_adot_custom_config_arn    = aws_ssm_parameter.mathservice-adot-config.arn
   alb_domain_name               = aws_alb.this.dns_name
   alb_zone_id                   = aws_alb.this.zone_id
   route53_zone_id               = aws_route53_zone.apps.id
+  # ssm_adot_custom_config_arn    = aws_ssm_parameter.adot-config.arn
   # {
   #   "VERIFY_SERVICE_URL" = "https://${local.verifyservice_domain}"
   # }
@@ -211,9 +230,10 @@ module "verifyservice_app" {
   listener_arn                  = aws_lb_listener.this.arn
   listener_rule_host_values     = [local.verifyservice_domain]
   loadbalancer_securitygroup_id = aws_security_group.lb.id
-  ssm_adot_custom_config_arn    = aws_ssm_parameter.adot-config.arn
+  ssm_adot_custom_config_arn    = aws_ssm_parameter.verifyservice-adot-config.arn
   alb_domain_name               = aws_alb.this.dns_name
   alb_zone_id                   = aws_alb.this.zone_id
   route53_zone_id               = aws_route53_zone.apps.id
+  # ssm_adot_custom_config_arn    = aws_ssm_parameter.adot-config.arn
 }
 

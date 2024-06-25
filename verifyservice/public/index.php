@@ -26,7 +26,11 @@ use OpenTelemetry\Contrib\Otlp\MetricExporter;
 use OpenTelemetry\SDK\Metrics\MeterProvider;
 use OpenTelemetry\SDK\Metrics\MeterProviderBuilder;
 use OpenTelemetry\SDK\Metrics\MetricReader\ExportingReader;
+use OpenTelemetry\SDK\Metrics\MetricSourceProviderInterface;
+use OpenTelemetry\SDK\Resource\ResourceInfo;
 use OpenTelemetry\SDK\Resource\ResourceInfoFactory;
+use OpenTelemetry\SDK\Trace\IdGeneratorInterface;
+use OpenTelemetry\SDK\Trace\TracerProviderInterface;
 use Psr\Log\LogLevel;
 
 define('LARAVEL_START', microtime(true));
@@ -41,36 +45,70 @@ require __DIR__ . '/../vendor/autoload.php';
 
 function getResourceInfo()
 {
-    // Can also check for Ec2 etc... can have if check on a getResource call and if empty get ec2 info...
-    $detectorDataProvider = new DataProvider();
     $client = new Client();
     $requestFactory = new HttpFactory();
+
     // ECS Detector
-    $detector = new Detector($detectorDataProvider, $client, $requestFactory);
-    if ($detector != null) {
-        return $detector->getResource();
+    $ecsDetectorDataProvider = new OpenTelemetry\Aws\Ecs\DataProvider();
+    $ecsDetector = new OpenTelemetry\Aws\Ecs\Detector($ecsDetectorDataProvider, $client, $requestFactory);
+    $ecsResourceInfo = $ecsDetector->getResource();
+    if ($ecsResourceInfo->getAttributes()->count() > 0) {
+        // ECS Resource was created!
+        return $ecsResourceInfo;
     }
 
     // If not ECS try EC2?
+    $ec2Detector = new OpenTelemetry\Aws\Ec2\Detector($client, $requestFactory);
+    $ec2ResourceInfo = $ec2Detector->getResource();
+    if ($ec2ResourceInfo->getAttributes()->count() > 0) {
+        // ECS Resource was created!
+        return $ec2ResourceInfo;
+    }
+
+    // Can also check for EKS!
 
     // All else fails lers create resource info.
     $manualResource = ResourceInfoFactory::defaultResource();
     return $manualResource;
 }
 
-OpenTelemetry\API\Globals::registerInitializer(function (Configurator $configurator) {
-    $idGenerator = new IdGenerator();
-    $propagator = new Propagator();
-
-    $resourceInfo = getResourceInfo();
-
-    $transport = (new GrpcTransportFactory())->create('http://0.0.0.0:4317' . OtlpUtil::method(Signals::TRACE));
+function getTraceProvider(ResourceInfo $resourceInfo, IdGeneratorInterface $idGenerator): TracerProviderInterface
+{
+    $traceEndpoint = env("TRACE_TELEMETRY_ENDPOINT", "http://0.0.0.0:4317");
+    $transport = (new GrpcTransportFactory())->create($traceEndpoint . OtlpUtil::method(Signals::TRACE));
     $exporter = new SpanExporter($transport);
     $spanProcessor = new SimpleSpanProcessor($exporter);
 
     $traceProvider = new TracerProvider($spanProcessor, null, $resourceInfo, null, $idGenerator);
 
     ShutdownHandler::register([$traceProvider, 'shutdown']);
+
+    return $traceProvider;
+}
+
+function getMetricProvider(ResourceInfo $resourceInfo): OpenTelemetry\sdk\metrics\MeterProviderInterface
+{
+    $metricEndpoint = env("METRIC_TELEMETRY_ENDPOINT", "http://0.0.0.0:4317");
+    $metricTransport = (new GrpcTransportFactory())->create($metricEndpoint . OtlpUtil::method(Signals::METRICS));
+    $metricExporter = new MetricExporter($metricTransport);
+    $metricReader = new ExportingReader($metricExporter);
+    $meterProvider = MeterProvider::builder()
+        ->setResource($resourceInfo)
+        ->addReader($metricReader)
+        ->build();
+
+    ShutdownHandler::register([$meterProvider, 'shutdown']);
+
+    return $meterProvider;
+}
+
+OpenTelemetry\API\Globals::registerInitializer(function (Configurator $configurator) {
+    $idGenerator = new OpenTelemetry\Aws\Xray\IdGenerator();
+    $propagator = new OpenTelemetry\Aws\Xray\Propagator();
+
+    $resourceInfo = getResourceInfo();
+
+    $traceProvider = getTraceProvider($resourceInfo, $idGenerator);
 
     // $logger = new Logger('verifyservice', [new StreamHandler(STDOUT, LogLevel::DEBUG)]);
     // log level filtering is handled in the collector...
@@ -84,16 +122,8 @@ OpenTelemetry\API\Globals::registerInitializer(function (Configurator $configura
     //     ->build();
     //
     // ShutdownHandler::register([$loggingProvider, 'shutdown']);
-    //
-    $metricTransport = (new GrpcTransportFactory())->create('http://0.0.0.0:4317' . OtlpUtil::method(Signals::METRICS));
-    $metricExporter = new MetricExporter($metricTransport);
-    $metricReader = new ExportingReader($metricExporter);
-    $meterProvider = MeterProvider::builder()
-        ->setResource($resourceInfo)
-        ->addReader($metricReader)
-        ->build();
 
-    ShutdownHandler::register([$meterProvider, 'shutdown']);
+    $meterProvider = getMetricProvider($resourceInfo);
 
     return $configurator
         ->withPropagator($propagator)

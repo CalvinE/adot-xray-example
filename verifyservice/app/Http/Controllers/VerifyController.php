@@ -6,7 +6,6 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Route;
 use OpenTelemetry\API\Instrumentation\CachedInstrumentation;
 use OpenTelemetry\API\Logs\LogRecord;
 use OpenTelemetry\API\Trace\Span;
@@ -15,10 +14,9 @@ use Psr\Log\LogLevel;
 
 class VerifyController extends Controller
 {
-    //
     public function verify(Request $request, Response $response): Response
     {
-        $instrumentation = new CachedInstrumentation("VerifyService");
+        $instrumentation = new CachedInstrumentation("VerifyService/VerifyHandler");
         // $logger = $instrumentation->logger();
         $span = $instrumentation->tracer()->spanBuilder("verify")->startSpan();
         // $span = Span::getCurrent();
@@ -46,6 +44,8 @@ class VerifyController extends Controller
             return response(["isTrue" => $isCorrect], 200)->header('Content-Type', "application/json");
         } catch (Exception $exception) {
             Log::debug("an error occurred", ["traceId" => $traceId, "error" => $exception->getMessage(), "stackTrace" => $exception->getTraceAsString()]);
+            $meter = $instrumentation->meter()->createHistogram("exceptions", "occurances", "The number of exceptions that have occurred");
+            $meter->record(1);
             // $logger->emit((new LogRecord())
             //     ->setBody("an error happened")
             //     ->setAttribute("traceId", $traceId)

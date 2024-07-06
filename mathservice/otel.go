@@ -100,7 +100,10 @@ func initMetrics(ctx context.Context, res *resource.Resource) (ShutdownFunc, err
 	}
 
 	mp := metric.NewMeterProvider(
-		metric.WithReader(metric.NewPeriodicReader(metricExporter)),
+		// metric.WithReader(metric.NewManualReader(metric.WithTemporalitySelector(func(ik metric.InstrumentKind) metricdata.Temporality {return metricdata.DeltaTemporality})))
+		metric.WithReader(
+			metric.NewPeriodicReader(metricExporter),
+		),
 		metric.WithResource(res),
 	)
 

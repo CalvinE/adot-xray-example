@@ -28,6 +28,17 @@ variable "app_name" {
   type        = string
 }
 
+variable "service_discovery_private_namespace_id" {
+  description = "The arn of the private service discovery namespace id"
+  type        = string
+}
+
+variable "container_network_mode" {
+  description = "The network mode for the container"
+  type        = string
+  default     = "awsvpc"
+}
+
 variable "container_port" {
   description = "The port on the ecs container"
   type        = number
@@ -41,6 +52,21 @@ variable "healthcheck_path" {
 variable "ecs_cluster_id" {
   description = "The id of the ECS cluster to add the service to."
   type        = string
+}
+
+variable "ecs_cluster_name" {
+  description = "The name of the ECS cluster"
+  type        = string
+}
+
+variable "ecs_min_count" {
+  description = "The min number of instances of the app"
+  type        = number
+}
+
+variable "ecs_max_count" {
+  description = "The max number of instances of the app"
+  type        = number
 }
 
 variable "ecs_desired_count" {
@@ -67,11 +93,6 @@ variable "app_env_variables" {
   description = "The environment varialbes to set for the container"
   default     = []
   type        = list(object({ name = string, value = string })) //set(object({ name = string, value = string }))
-}
-
-variable "ssm_adot_custom_config_arn" {
-  description = "This is the arn to the SSM parameter that contains the whole text of your custom adot config"
-  type        = string
 }
 
 variable "route53_zone_id" {

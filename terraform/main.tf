@@ -8,15 +8,9 @@ terraform {
   }
 }
 
-locals {
-  region        = var.region
-  external_port = 443
-  tld           = var.top_hosted_domain #"cechols.com"
-}
-
 # Configure the AWS Provider
 provider "aws" {
-  region = local.region
+  region = var.region
   default_tags {
     tags = {
       Source = "adot-xray-example"
@@ -25,7 +19,11 @@ provider "aws" {
 }
 
 locals {
-  apps_domain            = "apps.${local.tld}"
+  apps_domain = "apps.${var.top_hosted_domain}"
+  external_ports = {
+    port     = 443
+    protocol = "HTTPS"
+  }
   vpc_cidr               = "10.0.0.0/16"
   mathservice_app_name   = "mathservice"
   mathservice_domain     = "${local.mathservice_app_name}.${local.apps_domain}"
@@ -45,32 +43,6 @@ locals {
   ]
 }
 
-# SSM Parameter for custom adot config
-# resource "aws_ssm_parameter" "adot-config" {
-#   name  = "adot-collector-config"
-#   tier  = "Standard"
-#   value = file("${path.module}/adot-config/custom.yaml")
-#   type  = "String"
-# }
-
-resource "aws_ssm_parameter" "mathservice-adot-config" {
-  name = "adot-collector-config-${local.mathservice_app_name}"
-  tier = "Standard"
-  value = templatefile("${path.module}/adot-config/custom-parameterized.yaml", {
-    app_name = local.mathservice_app_name
-  })
-  type = "String"
-}
-
-resource "aws_ssm_parameter" "verifyservice-adot-config" {
-  name = "adot-collector-config-${local.verifyservice_app_name}"
-  tier = "Standard"
-  value = templatefile("${path.module}/adot-config/custom-parameterized.yaml", {
-    app_name = local.verifyservice_app_name
-  })
-  type = "String"
-}
-
 resource "aws_alb" "this" {
   name            = "adot-demo-lb"
   subnets         = values(module.azs)[*].public_subnet_id
@@ -79,8 +51,8 @@ resource "aws_alb" "this" {
 
 resource "aws_lb_listener" "this" {
   load_balancer_arn = aws_alb.this.arn
-  port              = local.external_port
-  protocol          = "HTTPS"
+  port              = local.external_ports.port
+  protocol          = local.external_ports.protocol
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
   certificate_arn   = aws_acm_certificate.adot_apps.arn
 
@@ -99,14 +71,16 @@ resource "aws_security_group" "lb" {
   name_prefix = "adot example allow app traffic"
   vpc_id      = module.vpc.vpc_id
   ingress {
-    from_port        = local.external_port
-    to_port          = local.external_port
+    description      = "Allow ingress on ${local.external_ports.port} (${local.external_ports.protocol})"
+    from_port        = local.external_ports.port
+    to_port          = local.external_ports.port
     protocol         = "tcp"
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
   }
 
   egress {
+    description      = "Allow all outbound traffic"
     from_port        = 0
     to_port          = 0
     protocol         = "-1"
@@ -120,9 +94,15 @@ resource "aws_ecs_cluster" "main" {
   name = "adot-cluster"
 }
 
+resource "aws_service_discovery_private_dns_namespace" "this" {
+  name        = "adot-poc.local"
+  description = "service discovery for adot POC apps"
+  vpc         = module.vpc.vpc_id
+}
+
 # Route 53 Resources
 data "aws_route53_zone" "tld" {
-  name = local.tld
+  name = var.top_hosted_domain
 }
 
 resource "aws_route53_zone" "apps" {
@@ -190,50 +170,52 @@ module "azs" {
 }
 
 module "mathservice_app" {
-  source                        = "./ecsfgapp"
-  vpc_id                        = module.vpc.vpc_id
-  private_subnet_ids            = values(module.azs)[*].private_subnet_id
-  app_name                      = local.mathservice_app_name
-  container_port                = 8080
-  healthcheck_path              = "/health"
-  ecs_cluster_id                = aws_ecs_cluster.main.id
-  ecs_desired_count             = 1
-  ecs_fargate_cpu               = 256
-  ecs_fargate_memory            = 512
-  aws_region                    = local.region
-  listener_arn                  = aws_lb_listener.this.arn
-  listener_rule_host_values     = [local.mathservice_domain]
-  loadbalancer_securitygroup_id = aws_security_group.lb.id
-  app_env_variables             = [{ name = "VERIFY_SERVICE_URL", value = "https://${local.verifyservice_domain}" }]
-  ssm_adot_custom_config_arn    = aws_ssm_parameter.mathservice-adot-config.arn
-  alb_domain_name               = aws_alb.this.dns_name
-  alb_zone_id                   = aws_alb.this.zone_id
-  route53_zone_id               = aws_route53_zone.apps.id
-  # ssm_adot_custom_config_arn    = aws_ssm_parameter.adot-config.arn
-  # {
-  #   "VERIFY_SERVICE_URL" = "https://${local.verifyservice_domain}"
-  # }
+  source                                 = "./ecsfgapp"
+  vpc_id                                 = module.vpc.vpc_id
+  private_subnet_ids                     = values(module.azs)[*].private_subnet_id
+  app_name                               = local.mathservice_app_name
+  service_discovery_private_namespace_id = aws_service_discovery_private_dns_namespace.this.id
+  container_port                         = 8080
+  healthcheck_path                       = "/health"
+  ecs_cluster_id                         = aws_ecs_cluster.main.id
+  ecs_cluster_name                       = aws_ecs_cluster.main.name
+  ecs_min_count                          = 1
+  ecs_max_count                          = 4
+  ecs_desired_count                      = 1
+  ecs_fargate_cpu                        = 256
+  ecs_fargate_memory                     = 512
+  aws_region                             = var.region
+  listener_arn                           = aws_lb_listener.this.arn
+  listener_rule_host_values              = [local.mathservice_domain]
+  loadbalancer_securitygroup_id          = aws_security_group.lb.id
+  app_env_variables                      = [{ name = "VERIFY_SERVICE_URL", value = "https://${local.verifyservice_domain}" }]
+  alb_domain_name                        = aws_alb.this.dns_name
+  alb_zone_id                            = aws_alb.this.zone_id
+  route53_zone_id                        = aws_route53_zone.apps.id
 }
 
 module "verifyservice_app" {
-  source                        = "./ecsfgapp"
-  vpc_id                        = module.vpc.vpc_id
-  private_subnet_ids            = values(module.azs)[*].private_subnet_id
-  app_name                      = local.verifyservice_app_name
-  container_port                = 8000
-  healthcheck_path              = "/health"
-  ecs_cluster_id                = aws_ecs_cluster.main.id
-  ecs_desired_count             = 1
-  ecs_fargate_cpu               = 256
-  ecs_fargate_memory            = 512
-  aws_region                    = local.region
-  listener_arn                  = aws_lb_listener.this.arn
-  listener_rule_host_values     = [local.verifyservice_domain]
-  loadbalancer_securitygroup_id = aws_security_group.lb.id
-  ssm_adot_custom_config_arn    = aws_ssm_parameter.verifyservice-adot-config.arn
-  alb_domain_name               = aws_alb.this.dns_name
-  alb_zone_id                   = aws_alb.this.zone_id
-  route53_zone_id               = aws_route53_zone.apps.id
+  source                                 = "./ecsfgapp"
+  vpc_id                                 = module.vpc.vpc_id
+  private_subnet_ids                     = values(module.azs)[*].private_subnet_id
+  app_name                               = local.verifyservice_app_name
+  service_discovery_private_namespace_id = aws_service_discovery_private_dns_namespace.this.id
+  container_port                         = 8000
+  healthcheck_path                       = "/health"
+  ecs_cluster_id                         = aws_ecs_cluster.main.id
+  ecs_cluster_name                       = aws_ecs_cluster.main.name
+  ecs_min_count                          = 1
+  ecs_max_count                          = 4
+  ecs_desired_count                      = 1
+  ecs_fargate_cpu                        = 256
+  ecs_fargate_memory                     = 512
+  aws_region                             = var.region
+  listener_arn                           = aws_lb_listener.this.arn
+  listener_rule_host_values              = [local.verifyservice_domain]
+  loadbalancer_securitygroup_id          = aws_security_group.lb.id
+  alb_domain_name                        = aws_alb.this.dns_name
+  alb_zone_id                            = aws_alb.this.zone_id
+  route53_zone_id                        = aws_route53_zone.apps.id
   # ssm_adot_custom_config_arn    = aws_ssm_parameter.adot-config.arn
 }
 

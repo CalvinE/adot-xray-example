@@ -1,6 +1,7 @@
 resource "aws_alb_target_group" "this" {
-  name = "${var.app_name}-tg"
-  port = var.container_port
+  for_each = { for m in var.port_mappings : m.details.name => m.details if m.addToALB }
+  name     = "${var.app_name}-${each.key}-tg"
+  port     = each.value.containerPort
   // TODO: make configurable?
   protocol    = "HTTP"
   target_type = "ip"
@@ -21,6 +22,7 @@ resource "aws_alb_target_group" "this" {
 }
 
 resource "aws_lb_listener_rule" "this" {
+  for_each     = { for m in var.port_mappings : m.details.name => m.details if m.addToALB }
   listener_arn = var.listener_arn
   condition {
     host_header {
@@ -29,7 +31,7 @@ resource "aws_lb_listener_rule" "this" {
   }
   action {
     type             = "forward"
-    target_group_arn = aws_alb_target_group.this.arn
+    target_group_arn = aws_alb_target_group.this[each.key].arn
   }
 }
 

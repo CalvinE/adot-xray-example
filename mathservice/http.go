@@ -133,6 +133,7 @@ func (mshh *mathServiceHTTPHandler) validateOp(ctx context.Context, op string) (
 func (mshh *mathServiceHTTPHandler) validateAdd(ctx context.Context, logger *slog.Logger, op1, op2, sum int) error {
 	// VERIFY_SERVICE_URL
 	logger.Debug("calling verify service to verify result")
+	// http://http-verifyservice.adot-poc.internal:8000
 	domain := envOrDefault("VERIFY_SERVICE_URL", "http://localhost:8000")
 	ctx, span := mshh.Tracer.Start(ctx, "validateAdd")
 	defer span.End()

@@ -12,12 +12,7 @@
           "awslogs-stream-prefix": "ecs"
         }
     },
-    "portMappings": [
-      {
-        "containerPort": ${app_port},
-        "hostPort": ${app_port}
-      }
-    ]
+    "portMappings": ${port_mappings}
   },
   {
     "name": "${app_adot_name}",

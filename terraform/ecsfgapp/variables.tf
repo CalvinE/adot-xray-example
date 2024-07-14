@@ -28,8 +28,45 @@ variable "app_name" {
   type        = string
 }
 
-variable "service_discovery_private_namespace_id" {
-  description = "The arn of the private service discovery namespace id"
+variable "port_mappings" {
+  description = "The port mappings for the app container. See: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_PortMapping.html#API_PortMapping_Contents"
+  type = list(object({
+    addToALB = bool,
+    details = object({
+      name          = string,
+      protocol      = string,
+      appProtocol   = string,
+      containerPort = number,
+      # hostPort      = number,
+    })
+  }))
+  validation {
+    condition = alltrue([
+      for o in var.port_mappings : length(o.details.name) > 0
+    ])
+    error_message = "name must have a value"
+  }
+  validation {
+    condition = alltrue([
+      for o in var.port_mappings : contains(["tcp", "udp", null], o.details.protocol)
+    ])
+    error_message = "protocol must be 'tcp', 'udp' or null"
+  }
+  validation {
+    condition = alltrue([
+      for o in var.port_mappings : contains(["http", "http2", "grpc", null], o.details.appProtocol)
+    ])
+    error_message = "appProtocol must be 'http', 'http2', 'grpc', or null"
+  }
+}
+
+variable "service_discovery_http_namespace_id" {
+  description = "The ID of the service discovery HTTP namespace"
+  type        = string
+}
+
+variable "service_discovery_http_zone_name" {
+  description = "The name of the service discovery namespace"
   type        = string
 }
 
@@ -37,11 +74,6 @@ variable "container_network_mode" {
   description = "The network mode for the container"
   type        = string
   default     = "awsvpc"
-}
-
-variable "container_port" {
-  description = "The port on the ecs container"
-  type        = number
 }
 
 variable "healthcheck_path" {
@@ -92,7 +124,7 @@ variable "aws_region" {
 variable "app_env_variables" {
   description = "The environment varialbes to set for the container"
   default     = []
-  type        = list(object({ name = string, value = string })) //set(object({ name = string, value = string }))
+  type        = list(object({ name = string, value = string }))
 }
 
 variable "route53_zone_id" {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -15,6 +16,20 @@ import (
 	appmetric "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
+
+func (mshh *mathServiceHTTPHandler) getVerifyServiceHttpURL(ctx context.Context, logger *slog.Logger) string {
+	_, span := mshh.Tracer.Start(ctx, "getVerifyServiceHttpURL")
+	defer span.End()
+	psd, ok := os.LookupEnv("PSD_DOMAIN")
+	if ok {
+		domain := fmt.Sprintf("http://http-verifyservice.%s", psd)
+		logger.Debug("PSD_DOMAIN so service connect is enabled", slog.String("psd_domain", psd), slog.String("domain", domain))
+		return domain
+	}
+	domain := envOrDefault("VERIFY_SERVICE_URL", "http://localhost:8000")
+	logger.Debug("service connect not found", slog.String("domain", domain))
+	return domain
+}
 
 type mathServiceHTTPHandler struct {
 	// we can add our meters here so we can reference them in our handler.
@@ -131,14 +146,12 @@ func (mshh *mathServiceHTTPHandler) validateOp(ctx context.Context, op string) (
 }
 
 func (mshh *mathServiceHTTPHandler) validateAdd(ctx context.Context, logger *slog.Logger, op1, op2, sum int) error {
-	// VERIFY_SERVICE_URL
-	logger.Debug("calling verify service to verify result")
-	// http://http-verifyservice.adot-poc.internal:8000
-	domain := envOrDefault("VERIFY_SERVICE_URL", "http://localhost:8000")
 	ctx, span := mshh.Tracer.Start(ctx, "validateAdd")
 	defer span.End()
-
+	logger.Debug("calling verify service to verify result")
+	domain := mshh.getVerifyServiceHttpURL(ctx, logger)
 	url := fmt.Sprintf("%s/api/verify?op1=%d&op2=%d&es=%d", domain, op1, op2, sum)
+	logger.Info("constructed verify url", slog.String("url", url))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		setSpanError(span, "failed to create request to verify service", err)

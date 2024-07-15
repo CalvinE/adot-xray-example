@@ -127,7 +127,11 @@ resource "aws_ecs_service" "this" {
     enabled   = true
     namespace = var.service_discovery_http_zone_name
     # log_configuration {
-    #   
+    #   log_driver = "awslogs"
+    #   options = {
+    #     "awslogs-region" : "us-east-2"
+    #     "awslogs-group" = "/aws/ecs/serviceconnect/${var.app_name}"
+    #   }
     # }
     dynamic "service" {
       for_each = var.port_mappings
@@ -136,15 +140,19 @@ resource "aws_ecs_service" "this" {
         port_name      = service.value.details.name
         discovery_name = "${service.value.details.name}-${var.app_name}"
         client_alias {
-          # dns_name = "${service.value.details.appProtocol}-${var.app_name}"
-          port = service.value.details.containerPort
+          dns_name = try(service.value.serviceConnect.dns_name, null)
+          port     = try(service.value.serviceConnect.port, service.value.details.containerPort)
         }
       }
     }
   }
 
   network_configuration {
-    security_groups  = [aws_security_group.ecs_task.id]
+    security_groups = [
+      aws_security_group.ecs_task.id,
+      // This one allows all ecs service to communicate with each other. This is a POC. In a real deployment we might want to only allow specific communications between services?
+      var.ecs_cluster_service_securitygroup_id
+    ]
     subnets          = var.private_subnet_ids
     assign_public_ip = false
   }

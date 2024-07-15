@@ -23,6 +23,11 @@ variable "loadbalancer_securitygroup_id" {
   type        = string
 }
 
+variable "ecs_cluster_service_securitygroup_id" {
+  description = "The security group id that will allow inter service communications"
+  type        = string
+}
+
 variable "app_name" {
   description = "The name of the app being deployed"
   type        = string
@@ -32,12 +37,16 @@ variable "port_mappings" {
   description = "The port mappings for the app container. See: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_PortMapping.html#API_PortMapping_Contents"
   type = list(object({
     addToALB = bool,
+    serviceConnect = optional(object({
+      dns_name = optional(string),
+      port     = optional(number)
+    })),
     details = object({
       name          = string,
       protocol      = string,
       appProtocol   = string,
       containerPort = number,
-      # hostPort      = number,
+      # hostPort      = optional(number),
     })
   }))
   validation {

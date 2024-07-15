@@ -68,7 +68,7 @@ resource "aws_lb_listener" "this" {
 
 # Security Group Resources
 resource "aws_security_group" "lb" {
-  name_prefix = "adot example allow app traffic"
+  name_prefix = "adot_example_allow_app_lb_traffic"
   vpc_id      = module.vpc.vpc_id
   ingress {
     description      = "Allow ingress on ${local.external_ports.port} (${local.external_ports.protocol})"
@@ -86,6 +86,26 @@ resource "aws_security_group" "lb" {
     protocol         = "-1"
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_security_group" "ecs_service" {
+  name_prefix = "allow_ecs_cluster_internal_traffic"
+  vpc_id      = module.vpc.vpc_id
+  ingress {
+    description = "Allow traffic between ecs services"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    self        = true
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
@@ -183,6 +203,9 @@ module "mathservice_app" {
   service_discovery_http_zone_name    = aws_service_discovery_http_namespace.this.name
   port_mappings = [{
     addToALB = true,
+    serviceConnect = {
+      port = 80
+    },
     details = {
       containerPort = 8080,
       name          = "http",
@@ -190,22 +213,23 @@ module "mathservice_app" {
       protocol      = "tcp",
     }
   }]
-  healthcheck_path              = "/health"
-  ecs_cluster_id                = aws_ecs_cluster.main.id
-  ecs_cluster_name              = aws_ecs_cluster.main.name
-  ecs_min_count                 = 1
-  ecs_max_count                 = 4
-  ecs_desired_count             = 1
-  ecs_fargate_cpu               = 256
-  ecs_fargate_memory            = 512
-  aws_region                    = var.region
-  listener_arn                  = aws_lb_listener.this.arn
-  listener_rule_host_values     = [local.mathservice_domain]
-  loadbalancer_securitygroup_id = aws_security_group.lb.id
-  app_env_variables             = [{ name = "VERIFY_SERVICE_URL", value = "https://${local.verifyservice_domain}" }]
-  alb_domain_name               = aws_alb.this.dns_name
-  alb_zone_id                   = aws_alb.this.zone_id
-  route53_zone_id               = aws_route53_zone.apps.id
+  healthcheck_path                     = "/health"
+  ecs_cluster_id                       = aws_ecs_cluster.main.id
+  ecs_cluster_name                     = aws_ecs_cluster.main.name
+  ecs_min_count                        = 1
+  ecs_max_count                        = 4
+  ecs_desired_count                    = 1
+  ecs_fargate_cpu                      = 256
+  ecs_fargate_memory                   = 512
+  aws_region                           = var.region
+  listener_arn                         = aws_lb_listener.this.arn
+  listener_rule_host_values            = [local.mathservice_domain]
+  loadbalancer_securitygroup_id        = aws_security_group.lb.id
+  ecs_cluster_service_securitygroup_id = aws_security_group.ecs_service.id
+  app_env_variables                    = [{ name = "VERIFY_SERVICE_URL", value = "https://${local.verifyservice_domain}" }]
+  alb_domain_name                      = aws_alb.this.dns_name
+  alb_zone_id                          = aws_alb.this.zone_id
+  route53_zone_id                      = aws_route53_zone.apps.id
 }
 
 module "verifyservice_app" {
@@ -217,6 +241,9 @@ module "verifyservice_app" {
   service_discovery_http_zone_name    = aws_service_discovery_http_namespace.this.name
   port_mappings = [{
     addToALB = true,
+    serviceConnect = {
+      port = 80
+    },
     details = {
       containerPort = 8000,
       name          = "http",
@@ -224,21 +251,22 @@ module "verifyservice_app" {
       protocol      = "tcp",
     }
   }]
-  healthcheck_path              = "/health"
-  ecs_cluster_id                = aws_ecs_cluster.main.id
-  ecs_cluster_name              = aws_ecs_cluster.main.name
-  ecs_min_count                 = 1
-  ecs_max_count                 = 4
-  ecs_desired_count             = 1
-  ecs_fargate_cpu               = 256
-  ecs_fargate_memory            = 512
-  aws_region                    = var.region
-  listener_arn                  = aws_lb_listener.this.arn
-  listener_rule_host_values     = [local.verifyservice_domain]
-  loadbalancer_securitygroup_id = aws_security_group.lb.id
-  alb_domain_name               = aws_alb.this.dns_name
-  alb_zone_id                   = aws_alb.this.zone_id
-  route53_zone_id               = aws_route53_zone.apps.id
+  healthcheck_path                     = "/health"
+  ecs_cluster_id                       = aws_ecs_cluster.main.id
+  ecs_cluster_name                     = aws_ecs_cluster.main.name
+  ecs_min_count                        = 1
+  ecs_max_count                        = 4
+  ecs_desired_count                    = 1
+  ecs_fargate_cpu                      = 256
+  ecs_fargate_memory                   = 512
+  aws_region                           = var.region
+  listener_arn                         = aws_lb_listener.this.arn
+  listener_rule_host_values            = [local.verifyservice_domain]
+  loadbalancer_securitygroup_id        = aws_security_group.lb.id
+  ecs_cluster_service_securitygroup_id = aws_security_group.ecs_service.id
+  alb_domain_name                      = aws_alb.this.dns_name
+  alb_zone_id                          = aws_alb.this.zone_id
+  route53_zone_id                      = aws_route53_zone.apps.id
   # ssm_adot_custom_config_arn    = aws_ssm_parameter.adot-config.arn
 }
 

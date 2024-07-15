@@ -2,8 +2,6 @@
 
 SERVICES=("mathservice" "verifyservice")
 
-# TARGET_SERVICES="TARGET_SERVICES"
-
 SCRIPT_PREFIX="***"
 
 if [[ ${TARGET_SERVICES:-""} == "" ]]; then
@@ -18,10 +16,11 @@ aws ecr get-login-password --region us-east-2 | docker login -u AWS --password-s
 echo "${SCRIPT_PREFIX} target_services: \"${TARGET_SERVICES}\""
 
 for service in ${TARGET_SERVICES}; do
+  tag="latest"
   echo "${SCRIPT_PREFIX} found $service"
   ### Build app docker images
   echo "${SCRIPT_PREFIX} building ${service} docker image"
-  docker build -f ../${service}/Dockerfile -t ${service} ../${service}
+  docker build -f ../${service}/Dockerfile -t ${service}:${tag} ../${service}
   if [ "$?" != 0 ]; then
     echo "${SCRIPT_PREFIX} failed to build ${service} docker image"
     exit 1
@@ -29,10 +28,9 @@ for service in ${TARGET_SERVICES}; do
   ### Tag docker images
   ecr_url_output_name="${service}_ecr_url"
   ecr_url=$(terraform output -raw $ecr_url_output_name)
-  tag="latest"
   image_tag="${ecr_url}:${tag}"
   echo "${SCRIPT_PREFIX} tagging ${service} with ${image_tag}"
-  docker tag "${image_tag}" "${ecr_url}"
+  docker tag "${service}:${tag}" "${ecr_url}"
   if [ "$?" != 0 ]; then
     echo "${SCRIPT_PREFIX} failed to tag ${service} docker image"
     exit 1
@@ -44,6 +42,11 @@ for service in ${TARGET_SERVICES}; do
     echo "${SCRIPT_PREFIX} failed to push ${service} docker image to ECR"
     exit 1
   fi
+  ### Force update / deploy in ECS?
+  # get first cluster for region
+  # aws ecs list-clusters --region us-east-2 | jq ".clusterArns[0]"
+  # get list of services (each separated by a new line) got the first ecs cluster in a region
+  # aws ecs list-services --cluster $(aws ecs list-clusters --region us-east-2 | jq -r ".clusterArns[0]") --region us-east-2 | jq -r ".serviceArns[]"
   echo "${SCRIPT_PREFIX} service deployed: ${service}"
 done
 
